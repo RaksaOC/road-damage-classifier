@@ -55,6 +55,16 @@ export const SCENES: Record<string, Scene> = {
   fresh: { seed: 5, base: "#3d3f42", paint: 1, focus: [1, 4], build: r => [
     { t: "D10", kind: "crack", pts: walk(r, 70, 350, 240, 338, 30, 6) },
   ] },
+  /* extra sample roads for the app's sample photos and seeded reports */
+  worn: { seed: 41, base: "#4f5153", paint: 0.45, focus: [2, 2], build: r => [
+    { t: "D20", kind: "web", x0: 60, y0: 150, x1: 300, y1: 330 },
+    { t: "D40", kind: "hole", x: 500, y: 110, rad: 30 },
+    { t: "D10", kind: "crack", pts: walk(r, 330, 360, 630, 350, 50, 6) },
+  ] },
+  junction: { seed: 73, base: "#58595a", paint: 0.8, focus: [6, 2], build: r => [
+    { t: "D00", kind: "crack", pts: walk(r, 470, -10, 488, 410, 60, 8) },
+    { t: "D10", kind: "crack", pts: walk(r, -10, 210, 300, 196, 50, 7) },
+  ] },
 };
 
 type G = CanvasRenderingContext2D;
