@@ -13,9 +13,6 @@ models/*
 !data/processed/.gitkeep
 !models/.gitkeep
 
-# generated reports (keep the folder)
-reports/figures/*
-!reports/figures/.gitkeep
 
 # OS / editor
 .DS_Store

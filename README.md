@@ -15,7 +15,6 @@ app/          web app
 tests/        tests
 data/         raw/ and processed/ (not committed)
 models/       trained models (not committed)
-reports/      metrics and figures
 ```
 
 ## Setup
