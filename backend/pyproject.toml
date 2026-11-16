@@ -1,0 +1,23 @@
+[project]
+name = "road-damage-classifier-api"
+version = "0.1.0"
+description = "FastAPI backend and ML code for the Road Damage Classifier (ML course project)."
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "python-multipart>=0.0.12",
+    "numpy>=2.2",
+    "pandas>=2.2",
+    "pillow>=11.0",
+    "scikit-learn>=1.7,<1.8",
+    "matplotlib>=3.9",
+    "seaborn>=0.13",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "httpx>=0.27", "jupyterlab>=4.3", "ipykernel>=6.29"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

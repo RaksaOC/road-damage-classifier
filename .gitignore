@@ -5,14 +5,13 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
-# data and trained models (too big for git; see data/README.md)
-data/raw/*
-data/processed/*
-models/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!models/.gitkeep
-
+# data and trained models (too big for git)
+backend/data/raw/*
+backend/data/processed/*
+backend/models/*
+!backend/data/raw/.gitkeep
+!backend/data/processed/.gitkeep
+!backend/models/.gitkeep
 
 # OS / editor
 .DS_Store
