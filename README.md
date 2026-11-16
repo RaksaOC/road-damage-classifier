@@ -7,11 +7,11 @@ ML course project (Fundamentals of Machine Learning). Data: [RDD2022](https://gi
 ## Layout
 
 ```
-main.py       entry point
+main.py       serves the web app (uv run python main.py)
 src/          ML code
 scripts/      data and training scripts
 notebooks/    exploration and experiments
-app/          web app
+app/static/   web app: landing page + onboarding tour
 tests/        tests
 data/         raw/ and processed/ (not committed)
 models/       trained models (not committed)
@@ -21,5 +21,5 @@ models/       trained models (not committed)
 
 ```bash
 uv sync
-uv run python main.py
+uv run python main.py      # http://localhost:8000
 ```
