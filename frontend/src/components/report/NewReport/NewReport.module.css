@@ -1,0 +1,160 @@
+.page {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+.page > * {
+  flex: 1 0 auto;
+}
+/* first screen: the upload box and samples, centred in the space under the header */
+.pick {
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  min-height: calc(100dvh - 72px);
+  padding-top: 8px;
+}
+.center {
+  grid-row: 2;
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+.down {
+  grid-row: 3;
+  align-self: end;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 24px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  transition: color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.down:hover {
+  color: var(--ink);
+  background: var(--card);
+}
+.down svg {
+  animation: nudge 1.8s var(--ease) infinite;
+}
+@keyframes nudge {
+  50% {
+    transform: translateY(3px);
+  }
+}
+.intro {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+  justify-items: center;
+}
+.intro h1 {
+  font-size: clamp(2.2rem, 5.4vw, 3.4rem);
+}
+.intro p {
+  max-width: 56ch;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+/* photo + form / checklist / result: also fills the first screen, centred */
+.work {
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  min-height: calc(100dvh - 72px);
+  padding-top: 8px;
+}
+/* details + checking: nothing below, so fill exactly the space between header and footer */
+.fit {
+  min-height: 0;
+}
+.workInner {
+  grid-row: 2;
+  display: grid;
+  /* the photo is never taller than the screen leaves room for */
+  grid-template-columns: minmax(0, calc((100dvh - 300px) * 1.6)) minmax(320px, 420px);
+  justify-content: center;
+  align-items: center;
+  gap: clamp(18px, 3vw, 36px);
+}
+.media {
+  display: grid;
+  gap: 12px;
+}
+.under {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 24px;
+}
+.file {
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tipHint {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.side {
+  scroll-margin-top: 16px;
+  min-width: 0;
+}
+.form {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid transparent;
+}
+.form h2 {
+  font-size: 1.3rem;
+}
+.opt {
+  font-style: normal;
+  opacity: 0.7;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.go {
+  height: 46px;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+.result {
+  display: grid;
+  gap: 14px;
+}
+.meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+/* "Choose again" sits on the right */
+.again {
+  margin-left: auto;
+}
+@media (max-width: 860px) {
+  .work {
+    min-height: 0;
+    padding-top: 12px;
+  }
+  .workInner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
