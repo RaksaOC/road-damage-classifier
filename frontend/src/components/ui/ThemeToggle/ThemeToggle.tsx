@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import styles from "./ThemeToggle.module.css";
 
 type Theme = "light" | "dark";
 
@@ -15,12 +16,14 @@ export function ThemeToggle() {
   const toggle = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("rdc-theme", next); } catch {}
+    try {
+      localStorage.setItem("rdc-theme", next);
+    } catch {}
     setTheme(next);
   };
 
   return (
-    <button className="btn icon-btn" onClick={toggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
+    <button className={styles.button} onClick={toggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         {theme === "dark" ? (
           <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
