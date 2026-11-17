@@ -1,0 +1,97 @@
+.view {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 640 / 400;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--asphalt);
+  user-select: none;
+}
+.photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.6s var(--ease);
+}
+.mono {
+  filter: grayscale(1) contrast(1.15);
+}
+.grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+}
+.cell {
+  transition: background-color 0.35s var(--ease), box-shadow 0.2s var(--ease);
+}
+.lines .cell {
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
+}
+.hit {
+  background: color-mix(in srgb, var(--c) 42%, transparent);
+}
+.lines .hit {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 80%, transparent);
+}
+.live {
+  cursor: crosshair;
+}
+.live.on {
+  box-shadow: inset 0 0 0 2px #fff;
+}
+.scan {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 18%;
+  background: linear-gradient(90deg, transparent, rgba(255, 119, 89, 0.28), transparent);
+  border-right: 2px solid rgba(255, 140, 110, 0.85);
+  animation: sweep 1.3s var(--ease) infinite;
+}
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(560%);
+  }
+}
+.tip {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 20px);
+  padding: 6px 11px;
+  border-radius: var(--r-pill);
+  background: rgba(16, 18, 17, 0.82);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 0.84rem;
+  pointer-events: none;
+}
+.tip b {
+  font-family: var(--f-mono);
+  font-weight: 500;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+.sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.conf {
+  opacity: 0.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan {
+    animation: none;
+    display: none;
+  }
+}

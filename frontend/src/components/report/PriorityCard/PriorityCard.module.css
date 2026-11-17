@@ -1,0 +1,58 @@
+.card {
+  --p: var(--ok);
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid transparent;
+}
+.card[data-level="urgent"] {
+  --p: var(--c-d40);
+}
+.card[data-level="high"] {
+  --p: var(--c-d20);
+}
+.card[data-level="medium"] {
+  --p: var(--c-d10);
+}
+.card[data-level="low"] {
+  --p: var(--c-d00);
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.label {
+  font-family: var(--f-label);
+  text-transform: var(--label-tt);
+  letter-spacing: var(--label-track);
+  font-size: calc(0.76rem * var(--label-scale));
+  color: var(--muted);
+}
+.score {
+  margin-top: 2px;
+  font-family: var(--f-display);
+  font-size: 2.8rem;
+  line-height: 1;
+  color: var(--ink);
+}
+.score small {
+  margin-left: 6px;
+  font-size: 1rem;
+  color: var(--muted);
+}
+.meter {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--faint);
+  overflow: hidden;
+}
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--p);
+}

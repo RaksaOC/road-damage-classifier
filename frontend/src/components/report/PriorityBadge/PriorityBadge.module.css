@@ -1,0 +1,42 @@
+.badge {
+  --p: var(--ok);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--p) 14%, transparent);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge[data-level="urgent"] {
+  --p: var(--c-d40);
+}
+.badge[data-level="high"] {
+  --p: var(--c-d20);
+}
+.badge[data-level="medium"] {
+  --p: var(--c-d10);
+}
+.badge[data-level="low"] {
+  --p: var(--c-d00);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--p);
+}
+.score {
+  font-family: var(--f-mono);
+  font-weight: 500;
+  color: var(--muted);
+}
+.lg {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.92rem;
+}
