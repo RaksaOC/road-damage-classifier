@@ -14,6 +14,7 @@ import { DamageBreakdown } from "../DamageBreakdown";
 import { DamageLegend } from "../DamageLegend";
 import { ModelTabs } from "../ModelTabs";
 import { PhotoPicker, type PickedPhoto } from "../PhotoPicker";
+import { PrepView } from "../PrepView";
 import { PriorityCard } from "../PriorityCard";
 import { RoadView } from "../RoadView";
 import styles from "./NewReport.module.css";
@@ -84,7 +85,9 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
   const all = COLS * ROWS;
   // during the check the photo fills in with the neural network's answer, then follows the chosen tab
   const shown = results ? results[phase === "done" ? tab : "mlp"] : null;
-  const revealed = phase === "done" ? all : view.step > 3 ? all : view.step === 3 ? Math.floor(view.t * all) : 0;
+  // checklist steps: 0 crop, 1 resize, 2 squares, 3 grayscale, 4 features, 5 classify, 6 score
+  const prepping = phase === "details" || (phase === "checking" && view.step <= 1);
+  const revealed = phase === "done" ? all : view.step > 5 ? all : view.step === 5 ? Math.floor(view.t * all) : 0;
 
   return (
     <div className={styles.page}>
@@ -127,17 +130,29 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
           >
             <div className={styles.workInner}>
               <div className={styles.media}>
+                <div className={styles.stage}>
+                {prepping ? (
+                  <PrepView
+                    original={photo.original}
+                    size={photo.size}
+                    frame={photo.src}
+                    stage={phase === "details" ? "original" : view.step === 0 ? "crop" : "resize"}
+                  />
+                ) : (
                 <RoadView
                   src={photo.src}
                   alt={photo.name}
                   cells={phase === "checking" || phase === "done" ? shown?.cells : undefined}
                   confidence={shown?.confidence}
-                  grid={phase !== "details"}
+                  grid
                   revealed={revealed}
-                  mono={phase === "checking" && (view.step === 1 || view.step === 2)}
-                  scanning={phase === "checking" && view.step >= 1 && view.step <= 3}
+                  mono={phase === "checking" && (view.step === 3 || view.step === 4)}
+                  scanning={phase === "checking" && view.step >= 3 && view.step <= 5}
                   interactive={phase === "done"}
+                  numbers
                 />
+                )}
+                </div>
                 <div className={styles.under}>
                   {phase === "done" ? <DamageLegend /> : <span className={styles.file}>{photo.name}</span>}
                   {phase === "details" && (
@@ -145,7 +160,6 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
                       Change photo
                     </button>
                   )}
-                  {phase === "done" && <span className={styles.tipHint}>Hover or tap a square to see what this model saw</span>}
                 </div>
               </div>
 
@@ -238,9 +252,20 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
                           )}
                           {saved ? "Saved" : "Save record"}
                         </button>
-                        <button className={cx(ui.btn, ui.ghost, styles.again)} onClick={restart}>
-                          Choose again
-                        </button>
+                        <div className={styles.again}>
+                          <button className={cx(ui.btn, ui.ghost, styles.round)} onClick={start} aria-label="Run the check again" data-tip="Run the check again">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+                              <path d="M20 4v7h-7" />
+                            </svg>
+                          </button>
+                          <button className={cx(ui.btn, ui.ghost, styles.round)} onClick={restart} aria-label="Choose again" data-tip="Choose again">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                              <path d="M14 3v5h5" />
+                            </svg>
+                          </button>
+                        </div>
                       </motion.div>
                     </motion.div>
                   )}

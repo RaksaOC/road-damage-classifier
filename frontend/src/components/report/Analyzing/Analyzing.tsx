@@ -6,13 +6,15 @@ import { cx } from "@/lib/cx";
 import styles from "./Analyzing.module.css";
 
 export const ANALYSIS_STEPS = [
+  { title: "Cropping off the top 3/8", detail: "sky and horizon go, the bottom 5/8 with the road stays" },
+  { title: "Resizing to 640 × 400", detail: "the same size every training photo was" },
   { title: "Cutting the photo into 40 squares", detail: "8 across, 5 down, 80 × 80 pixels each" },
   { title: "Preparing each square", detail: "grayscale, shrunk to 32 × 32 = 1,024 numbers" },
   { title: "Measuring features", detail: "PCA plus brightness, contrast, edges, dark area, edge direction" },
   { title: "Classifying every square", detail: "with all 3 models: neural network, SVM and softmax regression" },
   { title: "Scoring the repair priority", detail: "damage weights added up to a 0–10 score" },
 ];
-const STEP_MS = [700, 750, 800, 1300, 650];
+const STEP_MS = [2000, 2000, 1000, 1000, 1000, 1700, 900];
 
 /**
  * The fake "model is running" checklist. Calls onStep as it moves on, so the photo next to it

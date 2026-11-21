@@ -87,6 +87,10 @@
   display: grid;
   gap: 12px;
 }
+/* room for the row and column numbers outside the photo */
+.stage {
+  padding: 18px 0 0 18px;
+}
 .under {
   display: flex;
   justify-content: space-between;
@@ -101,10 +105,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.tipHint {
-  color: var(--muted);
-  font-size: 0.82rem;
 }
 .side {
   scroll-margin-top: 16px;
@@ -145,9 +145,40 @@
   flex-wrap: wrap;
   gap: 10px;
 }
-/* "Choose again" sits on the right */
+/* "Run again" and "Choose again" sit on the right, as icon buttons */
 .again {
+  display: flex;
+  gap: 8px;
   margin-left: auto;
+}
+.round {
+  position: relative;
+  width: 40px;
+  padding: 0;
+}
+/* small tooltip below the button, from its data-tip text */
+.round::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translate(-50%, -4px);
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.round:hover::after,
+.round:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 @media (max-width: 860px) {
   .work {

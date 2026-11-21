@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cx } from "@/lib/cx";
-import { SAMPLES, fileToFrame, sampleFrame, type SampleKey } from "@/lib/demo/images";
+import { SAMPLES, filePrepared, sampleFrame, samplePrepared, type Prepared, type SampleKey } from "@/lib/demo/images";
 import styles from "./PhotoPicker.module.css";
 
-export interface PickedPhoto {
-  frame: HTMLCanvasElement;
+/** frame/src: the 640 × 400 frame the model sees. original/size: the photo as taken, for the crop animation. */
+export interface PickedPhoto extends Prepared {
   src: string;
   sample: SampleKey | null;
   name: string;
@@ -28,16 +28,16 @@ export function PhotoPicker({ onPick }: { onPick: (p: PickedPhoto) => void }) {
     if (!file) return;
     setError(null);
     try {
-      const frame = await fileToFrame(file);
-      onPick({ frame, src: frame.toDataURL("image/jpeg", 0.88), sample: null, name: file.name });
+      const p = await filePrepared(file);
+      onPick({ ...p, src: p.frame.toDataURL("image/jpeg", 0.88), sample: null, name: file.name });
     } catch (e) {
       setError(e instanceof Error ? e.message : "That file couldn't be opened.");
     }
   };
 
   const pickSample = (key: SampleKey, label: string) => {
-    const frame = sampleFrame(key);
-    onPick({ frame, src: frame.toDataURL("image/jpeg", 0.88), sample: key, name: `Sample: ${label}` });
+    const p = samplePrepared(key);
+    onPick({ ...p, src: p.frame.toDataURL("image/jpeg", 0.88), sample: key, name: `Sample: ${label}` });
   };
 
   return (
