@@ -24,7 +24,7 @@ export interface ModelCatalog {
 }
 
 export interface SampleCatalog {
-  list(): Promise<{ note: string; samples: Sample[] }>;
+  list(): Promise<{ samples: Sample[] }>;
 }
 
 export interface Health {

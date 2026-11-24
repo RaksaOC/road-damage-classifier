@@ -7,7 +7,7 @@ import type { ModelInfo } from "@/domain/model";
 import { countCells, mainIssue } from "@/domain/priority";
 import type { Report, ReportSummary } from "@/domain/report";
 import { staticSamples } from "@/data/shared/samples";
-import { thumbnail } from "@/lib/photo";
+import { loadImage, thumbnail, toFrame } from "@/lib/photo";
 import { ServiceError, type Services } from "@/services/ports";
 import { averagePriority, classifyAll, fromPixels, rng } from "./classifier";
 
@@ -68,17 +68,24 @@ export function createMockServices(): Services {
 
   async function seed(): Promise<Report[]> {
     const { samples } = await staticSamples.list();
+    // the stand-in classifier reads the sample photos' pixels, as it does for an upload
+    const photos = await Promise.all(samples.map(async (s) => {
+      const img = await loadImage(s.src);
+      return { frame: toFrame(img), size: { w: img.width, h: img.height } };
+    }));
     let days = 0;
     return PLACES.map((location, i) => {
-      const s = samples[i % samples.length];
-      const results = classifyAll(s.truth, rng(i + 1));
+      const p = photos[i % photos.length];
+      const r = rng(i + 1);
+      const results = classifyAll(fromPixels(p.frame, r), r);
+      const imageUrl = thumbnail(p.frame);
       days += i === 0 ? 1 : 1 + (i % 4);
       const createdAt = new Date(Date.now() - days * 864e5 - i * 37e5).toISOString();
       return {
         id: `seed-${i}`, number: PLACES.length - i, createdAt, location, lat: null, lng: null,
-        priority: averagePriority(results), imageUrl: s.frame,
+        priority: averagePriority(results), imageUrl,
         preview: { model: "mlp", labels: results.mlp.labels }, mainIssue: mainIssue(results.mlp.labels), corrected: false,
-        analysis: { id: `seed-a${i}`, createdAt, imageUrl: s.frame, originalSize: s.size, results, priority: averagePriority(results), timings: null, correction: null },
+        analysis: { id: `seed-a${i}`, createdAt, imageUrl, originalSize: p.size, results, priority: averagePriority(results), timings: null, correction: null },
       };
     });
   }

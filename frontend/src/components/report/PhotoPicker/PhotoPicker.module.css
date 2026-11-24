@@ -67,7 +67,7 @@
 }
 .row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 .sample {
@@ -93,12 +93,13 @@
   width: 100%;
   aspect-ratio: 16 / 10;
   object-fit: cover;
+  object-position: center 75%; /* raw photos: show the road, the part the models look at */
   border-radius: 10px;
   background: var(--asphalt);
 }
 @media (max-width: 640px) {
   .row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 .drop:disabled {

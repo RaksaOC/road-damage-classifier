@@ -89,7 +89,7 @@ export function PhotoPicker({ onPick }: { onPick: (p: PickedPhoto) => void }) {
           <>
             <div className={styles.row}>
               {samples.status === "loading"
-                ? Array.from({ length: 5 }, (_, i) => (
+                ? Array.from({ length: 8 }, (_, i) => (
                     <span key={i} className={cx(styles.sample, styles.photoOnly, styles.loading)} aria-hidden="true">
                       <span className={styles.ph} />
                     </span>
@@ -105,7 +105,7 @@ export function PhotoPicker({ onPick }: { onPick: (p: PickedPhoto) => void }) {
                       aria-label={`Sample road ${i + 1}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.frame} alt="" loading="lazy" />
+                      <img src={s.src} alt="" loading="lazy" />
                       {opening === s.key && <span className={styles.opening}>Opening…</span>}
                     </button>
                   ))}

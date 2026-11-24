@@ -62,7 +62,7 @@ async function pick(blob: Blob, name: string, source: PhotoInput["source"], samp
     const img = await loadImage(url);
     const frame = toFrame(img);
     return {
-      file: blob, filename: name, source, frame, truth: sample?.truth ?? null,
+      file: blob, filename: name, source, frame, truth: null,
       name: sample ? "Sample road" : name, src: frame.toDataURL("image/jpeg", 0.88),
       original: preview(img), size: { w: img.width, h: img.height }, sample,
     };
@@ -77,9 +77,9 @@ export async function pickFile(file: File) {
   return pick(file, file.name, "upload", null);
 }
 
-/** Downloads the sample photo as taken, so the server sees exactly the dataset file. */
+/** Downloads the raw sample photo; from here on it is handled exactly like a photo the user uploaded. */
 export async function pickSample(s: Sample) {
   const res = await fetch(s.src);
   if (!res.ok) throw new Error("That sample photo couldn't be loaded.");
-  return pick(await res.blob(), `${s.imageId}.jpg`, `sample:${s.key}`, s);
+  return pick(await res.blob(), `${s.key}.jpg`, `sample:${s.key}`, s);
 }

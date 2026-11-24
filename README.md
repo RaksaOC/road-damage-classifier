@@ -25,7 +25,7 @@ backend/
   app/domain.py        shapes + priority rule (mirrors frontend/src/domain)
   ml/photo.py          photo → 640 × 400 → 40 squares (same as training)
   ml/predict.py        loads the frozen models, checks their SHA-256 against metrics.json
-  ml/notebooks/        phases 1–13 · ml/scripts/pick_samples.py: sample photos
+  ml/notebooks/        phases 1–13 · ml/scripts/pick_samples.py: sample photos (raw dataset files)
   models/              frozen models + metrics.json from notebook 13 (not committed)
 ```
 
