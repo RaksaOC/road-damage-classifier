@@ -14,4 +14,7 @@ RUN useradd --create-home --uid 1001 app && mkdir -p models data && chown -R app
 USER app
 
 EXPOSE 8600
+# healthy = models loaded and Postgres reachable (see /api/health)
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
+  CMD python -c "import json,sys,urllib.request; sys.exit(0 if json.load(urllib.request.urlopen('http://127.0.0.1:8600/api/health', timeout=4))['ok'] else 1)"
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8600", "--workers", "1"]
