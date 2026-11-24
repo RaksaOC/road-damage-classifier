@@ -174,3 +174,25 @@ class ReportPage(BaseModel):
 
 
 Sort = Literal["newest", "oldest", "priority"]
+
+
+class UploadRequest(BaseModel):
+    """Step 1 of a check: what the browser is about to upload."""
+    content_type: str = Field(max_length=40)
+    size: int = Field(gt=0)
+
+
+class UploadForm(BaseModel):
+    """A signed form: POST `fields`, then the photo as `file`, to `url` (object storage, not this API)."""
+    key: str
+    url: str
+    fields: dict[str, str]
+    expires_at: datetime
+    max_bytes: int
+
+
+class AnalyzeRequest(BaseModel):
+    """Step 2: check the photo uploaded under `upload_key`."""
+    upload_key: str = Field(max_length=100)
+    filename: str = Field(default="photo", max_length=200)
+    source: str = Field(default="upload", max_length=60)  # 'upload' or 'sample:<key>'

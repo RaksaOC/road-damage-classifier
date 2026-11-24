@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS analyses (
     source      text NOT NULL,                 -- 'upload' or 'sample:<key>'
     original_w  integer NOT NULL,
     original_h  integer NOT NULL,
-    frame_jpeg  bytea NOT NULL,                -- the 640 x 400 frame the models saw
+    frame_key    text,                          -- object storage: the 640 x 400 frame the models saw
+    original_key text,                          -- object storage: the photo as taken
     priority    real NOT NULL,                 -- average of the models
     timings_ms  jsonb NOT NULL
 );
@@ -61,3 +62,13 @@ CREATE TABLE IF NOT EXISTS corrections (
 -- Where the road is: the pin on the map (the location name is looked up from it).
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS lat double precision CHECK (lat BETWEEN -90 AND 90);
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS lng double precision CHECK (lng BETWEEN -180 AND 180);
+
+-- Photos moved to object storage (app/storage.py): older databases get the key columns here, and
+-- db.move_frames_to_storage() copies their frames out of Postgres, then drops frame_jpeg.
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS frame_key text;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS original_key text;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'analyses' AND column_name = 'frame_jpeg') THEN
+        ALTER TABLE analyses ALTER COLUMN frame_jpeg DROP NOT NULL;
+    END IF;
+END $$;

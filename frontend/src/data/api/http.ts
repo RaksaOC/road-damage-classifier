@@ -1,7 +1,7 @@
 /* fetch for /api/*: turns network failures and FastAPI errors ({"detail": ...}) into ServiceErrors. */
 import { ServiceError, type ErrorKind } from "@/services/ports";
 
-const KIND: Record<number, ErrorKind> = { 404: "not_found", 409: "conflict", 413: "invalid", 422: "invalid", 503: "unavailable" };
+const KIND: Record<number, ErrorKind> = { 404: "not_found", 409: "conflict", 413: "invalid", 415: "invalid", 422: "invalid", 503: "unavailable" };
 
 function detail(body: unknown): string | null {
   const d = (body as { detail?: unknown } | null)?.detail;

@@ -1,4 +1,5 @@
-/* The real backend: FastAPI (backend/app/api.py) + Postgres, reached through Next's /api rewrite.
+/* The real backend: FastAPI (backend/app/api.py) + Postgres, reached through Next's /api rewrite. Photos go
+   straight from the browser to object storage (MinIO) with a signed form; the API only reads them from there.
    The DTO types mirror backend/app/domain.py; the mappers turn them into the frontend's domain types. */
 import type { Analysis, ModelResult, StageTimings } from "@/domain/analysis";
 import type { Box, Correction } from "@/domain/correction";
@@ -6,7 +7,7 @@ import type { ClassKey, Grid } from "@/domain/damage";
 import type { Metrics, ModelId, ModelInfo } from "@/domain/model";
 import type { Page, Report, ReportSummary } from "@/domain/report";
 import { staticSamples } from "@/data/shared/samples";
-import type { Services } from "@/services/ports";
+import { ServiceError, type Services } from "@/services/ports";
 import { http } from "./http";
 
 // ---- what the API sends ---------------------------------------------------------------------
@@ -28,7 +29,9 @@ interface ReportSummaryDto {
 }
 interface ReportDto extends ReportSummaryDto { analysis: AnalysisDto }
 interface PageDto { items: ReportSummaryDto[]; total: number; next_offset: number | null }
-interface HealthDto { model_loaded: boolean; database: boolean; error: string | null }
+interface HealthDto { model_loaded: boolean; database: boolean; storage: boolean; error: string | null }
+/** A signed upload form (POST /api/uploads): post `fields`, then the photo as "file", to `url`. */
+interface UploadFormDto { key: string; url: string; fields: Record<string, string>; expires_at: string; max_bytes: number }
 
 // ---- mappers --------------------------------------------------------------------------------
 const metrics = (m: MetricsDto): Metrics => ({ macroF1: m.macro_f1, potholeRecall: m.pothole_recall, cleanRoadFlagged: m.clean_road_flagged });
@@ -63,18 +66,44 @@ const summary = (r: ReportSummaryDto): ReportSummary => ({
 
 const report = (r: ReportDto): Report => ({ ...summary(r), analysis: analysis(r.analysis) });
 
-const json = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const json = (body: unknown, signal?: AbortSignal): RequestInit => ({
+  method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+});
+
+const TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+const typeOf = (file: Blob, name: string) => file.type || TYPES[name.split(".").pop()?.toLowerCase() ?? ""] || "image/jpeg";
+
+/** Sends the photo straight to object storage with the signed form. The storage checks the key, type and size. */
+async function upload(form: UploadFormDto, file: Blob, filename: string, signal?: AbortSignal): Promise<void> {
+  const body = new FormData();
+  for (const [k, v] of Object.entries(form.fields)) body.append(k, v);
+  body.append("file", file, filename); // the file must come last
+  let res: Response;
+  try {
+    res = await fetch(form.url, { method: "POST", body, signal });
+  } catch (e) {
+    if ((e as Error).name === "AbortError") throw e;
+    throw new ServiceError("offline", "The photo couldn't be uploaded. Check your connection and try again.");
+  }
+  if (res.ok) return;
+  const code = (await res.text().catch(() => "")).match(/<Code>([^<]+)<\/Code>/)?.[1];
+  if (code === "EntityTooLarge") throw new ServiceError("invalid", `That photo is too large. The limit is ${Math.round(form.max_bytes / 1e6)} MB.`);
+  if (res.status === 403) throw new ServiceError("invalid", "The upload took too long and its link expired. Please try again.");
+  throw new ServiceError("server", `The photo store answered ${res.status}${code ? ` (${code})` : ""}. Please try again.`);
+}
 
 // ---- the adapter ----------------------------------------------------------------------------
 export function createApiServices(): Services {
   return {
     source: "api",
     analysis: {
+      // samples take the same path as a chosen file, so each check gets its own copy of the photo in storage
       async analyze(input, opts) {
-        const form = new FormData();
-        form.append("photo", input.file, input.filename);
-        form.append("source", input.source);
-        return analysis(await http<AnalysisDto>("/api/analyze", { method: "POST", body: form, signal: opts?.signal }));
+        const signal = opts?.signal;
+        const form = await http<UploadFormDto>("/api/uploads", json({ content_type: typeOf(input.file, input.filename), size: input.file.size }, signal));
+        await upload(form, input.file, input.filename, signal);
+        const body = { upload_key: form.key, filename: input.filename, source: input.source };
+        return analysis(await http<AnalysisDto>("/api/analyze", json(body, signal)));
       },
       async correct(id, boxes) {
         const round = (b: Box): Box => ({ cls: b.cls, xmin: Math.round(b.xmin), ymin: Math.round(b.ymin), xmax: Math.round(b.xmax), ymax: Math.round(b.ymax) });
@@ -100,6 +129,7 @@ export function createApiServices(): Services {
           const h = await http<HealthDto>("/api/health");
           if (!h.model_loaded) return { ok: false, message: h.error ?? "The models aren't loaded on the server." };
           if (!h.database) return { ok: false, message: "The server can't reach its database (Postgres), so reports can't be saved." };
+          if (!h.storage) return { ok: false, message: "The server can't reach its photo store, so photos can't be checked right now." };
           return { ok: true, message: null };
         } catch {
           return { ok: false, message: "Can't reach the analysis server. Start the backend (port 8600) and try again." };

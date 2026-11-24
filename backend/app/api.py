@@ -7,14 +7,17 @@ Routes are plain `def`, so FastAPI runs them in a thread pool and model inferenc
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import RedirectResponse
 
 from ml.photo import PhotoError
 
 from . import db
-from .domain import Analysis, Correction, CorrectionIn, ModelInfo, Report, ReportCreate, ReportPage, Sort
+from .domain import (Analysis, AnalyzeRequest, Correction, CorrectionIn, ModelInfo, Report, ReportCreate, ReportPage, Sort,
+                     UploadForm, UploadRequest)
 from .repositories import AlreadySaved, NotFound
-from .services import AnalysisService, ModelCatalog, ModelsUnavailable, ReportService, TooLarge
+from .services import AnalysisService, ModelCatalog, ModelsUnavailable, NotAnImage, ReportService, TooLarge
+from .storage import StorageError, UploadMissing
 
 router = APIRouter(prefix="/api")
 
@@ -38,7 +41,8 @@ NO_MODELS = HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
 
 @router.get("/health")
 def health(request: Request) -> dict:
-    """ok is true only when the API can do its job: models loaded and Postgres reachable (the Docker health check uses it)."""
+    """ok is true only when the API can do its job: models loaded, Postgres and the photo store reachable
+    (the Docker health check uses it)."""
     s = request.app.state
     database = db.is_up(s.pool)
     if database and not s.schema_ready:  # Postgres came up after startup
@@ -48,8 +52,9 @@ def health(request: Request) -> dict:
         except Exception:
             database = False
     loaded = s.store is not None
-    return {"ok": loaded and database, "model_loaded": loaded, "models": s.store.names if s.store else [],
-            "database": database, "error": s.load_error}
+    files = s.files.is_up()
+    return {"ok": loaded and database and files, "model_loaded": loaded, "models": s.store.names if s.store else [],
+            "database": database, "storage": files, "error": s.load_error}
 
 
 @router.get("/models")
@@ -60,19 +65,35 @@ def list_models(svc: Annotated[ModelCatalog, Depends(catalog)]) -> list[ModelInf
         raise NO_MODELS
 
 
-@router.post("/analyze", status_code=status.HTTP_201_CREATED)
-def analyze(svc: Annotated[AnalysisService, Depends(analyses)],
-            photo: Annotated[UploadFile, File(description="Road photo, JPG/PNG/WebP")],
-            source: Annotated[str, Form(max_length=60)] = "upload") -> Analysis:
-    """Runs every frozen model on the photo and stores the result (not yet a report)."""
+NO_STORAGE = HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The photo store isn't reachable. Try again in a minute.")
+
+
+@router.post("/uploads", status_code=status.HTTP_201_CREATED)
+def sign_upload(body: UploadRequest, svc: Annotated[AnalysisService, Depends(analyses)]) -> UploadForm:
+    """Step 1 of a check: a signed form for sending one photo straight to object storage. It works for
+    10 minutes, for this one key, for this image type and up to the size limit (object storage checks all three)."""
     try:
-        return svc.analyze(photo.file.read(), photo.filename or "photo", source)
-    except ModelsUnavailable:
-        raise NO_MODELS
+        u = svc.sign_upload(body.content_type, body.size)
+    except NotAnImage as e:
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, str(e))
     except TooLarge as e:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(e))
+    return UploadForm(key=u.key, url=u.url, fields=u.fields, expires_at=u.expires_at, max_bytes=u.max_bytes)
+
+
+@router.post("/analyze", status_code=status.HTTP_201_CREATED)
+def analyze(body: AnalyzeRequest, svc: Annotated[AnalysisService, Depends(analyses)]) -> Analysis:
+    """Step 2: runs every frozen model on the uploaded photo and stores the result (not yet a report)."""
+    try:
+        return svc.analyze(body.upload_key, body.filename, body.source)
+    except ModelsUnavailable:
+        raise NO_MODELS
+    except UploadMissing:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "The photo didn't arrive (or its upload expired). Please choose it again.")
     except PhotoError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
+    except StorageError:
+        raise NO_STORAGE
 
 
 @router.get("/analyses/{analysis_id}")
@@ -92,14 +113,14 @@ def put_correction(analysis_id: UUID, body: CorrectionIn, svc: Annotated[Analysi
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That check no longer exists.")
 
 
-@router.get("/analyses/{analysis_id}/frame.jpg", response_class=Response)
-def get_frame(analysis_id: UUID, svc: Annotated[AnalysisService, Depends(analyses)]) -> Response:
+@router.get("/analyses/{analysis_id}/frame.jpg")
+def get_frame(analysis_id: UUID, svc: Annotated[AnalysisService, Depends(analyses)]) -> RedirectResponse:
+    """A stable address for the frame: redirects to a signed link in object storage (responses carry that link directly)."""
     try:
-        jpg = svc.frame(analysis_id)
+        url = svc.frame_link(analysis_id)
     except NotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such analysis.")
-    # an analysis never changes, so browsers may keep the image for good
-    return Response(jpg, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    return RedirectResponse(url, status.HTTP_307_TEMPORARY_REDIRECT, headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.post("/reports", status_code=status.HTTP_201_CREATED)

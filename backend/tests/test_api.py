@@ -1,5 +1,7 @@
-"""The whole API flow on a throwaway database: analyse a real test photo, save it, list, correct."""
+"""The whole API flow on a throwaway database: upload and analyse a real test photo, save it, list, correct.
+Photos go to an in-memory store (app/storage.MemoryStore), standing in for MinIO."""
 import io
+import os
 
 import pandas as pd
 import pytest
@@ -8,11 +10,12 @@ from PIL import Image
 
 from app import db
 from app.domain import priority_score
+from app.storage import MemoryStore
 from app.settings import Settings
 from main import create_app
 from ml import config
 
-TEST_DB = "postgresql:///rdc_test"
+TEST_DB = os.environ.get("TEST_DATABASE_URL", "postgresql:///rdc_test")
 
 
 def _db_up():
@@ -30,12 +33,27 @@ needs_all = pytest.mark.skipif(not _db_up() or not (config.MODELS / "metrics.jso
 
 
 @pytest.fixture()
-def client():
-    app = create_app(Settings(database_url=TEST_DB))
+def files():
+    return MemoryStore()
+
+
+@pytest.fixture()
+def client(files):
+    app = create_app(Settings(database_url=TEST_DB), files=files)
     with TestClient(app) as c:
         with app.state.pool.connection() as conn:
             conn.execute("TRUNCATE analyses CASCADE")
         yield c
+
+
+def check(client, files, data: bytes, content_type="image/jpeg", source="upload"):
+    """What the browser does: ask for a signed form, upload the photo to storage, then ask for the check."""
+    form = client.post("/api/uploads", json={"content_type": content_type, "size": len(data)})
+    assert form.status_code == 201, form.text
+    form = form.json()
+    assert form["fields"]["key"] == form["key"] and form["key"].startswith("incoming/")
+    files.put(form["key"], data, content_type)  # the browser's POST to object storage
+    return client.post("/api/analyze", json={"upload_key": form["key"], "filename": "road.jpg", "source": source})
 
 
 def road_photo() -> bytes:
@@ -50,18 +68,25 @@ def test_priority_matches_frontend_formula():
 
 
 @needs_all
-def test_analyze_save_list_delete(client):
+def test_analyze_save_list_delete(client, files):
     r = client.get("/api/health").json()
-    assert r["model_loaded"] and r["database"]
+    assert r["model_loaded"] and r["database"] and r["storage"]
     assert {m["id"] for m in client.get("/api/models").json()} == {"softmax", "svm", "mlp"}
 
-    a = client.post("/api/analyze", files={"photo": ("road.jpg", road_photo(), "image/jpeg")}).json()
+    a = check(client, files, road_photo())
+    assert a.status_code == 201, a.text
+    a = a.json()
     assert set(a["results"]) == {"softmax", "svm", "mlp"}
     mlp = a["results"]["mlp"]
     assert len(mlp["labels"]) == 5 and all(len(row) == 8 for row in mlp["labels"])
     assert sum(mlp["counts"].values()) == 40
-    frame = client.get(a["image_url"])
-    assert frame.status_code == 200 and Image.open(io.BytesIO(frame.content)).size == (640, 400)
+    # the photos are in object storage, not Postgres: the frame, and the upload moved out of incoming/
+    assert a["image_url"] == f"memory://bucket/frames/{a['id']}.jpg"
+    assert Image.open(io.BytesIO(files.get(f"frames/{a['id']}.jpg"))).size == (640, 400)
+    assert files.get(f"originals/{a['id']}.jpg") == road_photo()
+    assert not [k for k in files.objects if k.startswith("incoming/")]
+    frame = client.get(f"/api/analyses/{a['id']}/frame.jpg", follow_redirects=False)
+    assert frame.status_code == 307 and frame.headers["location"] == a["image_url"]
 
     rep = client.post("/api/reports", json={"analysis_id": a["id"], "location": "Test street", "lat": 11.55, "lng": 104.92})
     assert rep.status_code == 201
@@ -79,9 +104,18 @@ def test_analyze_save_list_delete(client):
 
 
 @needs_all
-def test_bad_uploads_are_explained(client):
-    r = client.post("/api/analyze", files={"photo": ("x.txt", b"hello", "text/plain")})
+def test_bad_uploads_are_explained(client, files):
+    r = client.post("/api/uploads", json={"content_type": "text/plain", "size": 5})
+    assert r.status_code == 415 and "JPG" in r.json()["detail"]
+    r = client.post("/api/uploads", json={"content_type": "image/jpeg", "size": 50 * 1024 * 1024})
+    assert r.status_code == 413
+    r = check(client, files, b"not really a jpeg")
     assert r.status_code == 422 and "image" in r.json()["detail"]
+    # nothing uploaded under the key, a key outside incoming/, or one used twice
+    r = client.post("/api/analyze", json={"upload_key": "incoming/" + "0" * 32 + ".jpg"})
+    assert r.status_code == 404
+    r = client.post("/api/analyze", json={"upload_key": "frames/x.jpg"})
+    assert r.status_code == 404
     r = client.post("/api/reports", json={"analysis_id": "00000000-0000-0000-0000-000000000000", "location": "x", "lat": 0, "lng": 0})
     assert r.status_code == 404
 
@@ -103,8 +137,8 @@ def test_correction_rule_reproduces_training_labels():
 
 
 @needs_all
-def test_correction_is_stored_with_the_report(client):
-    a = client.post("/api/analyze", files={"photo": ("road.jpg", road_photo(), "image/jpeg")}).json()
+def test_correction_is_stored_with_the_report(client, files):
+    a = check(client, files, road_photo()).json()
     box = {"cls": "D40", "xmin": 80, "ymin": 160, "xmax": 240, "ymax": 240}  # covers squares (2,1) and (2,2) fully
     c = client.put(f"/api/analyses/{a['id']}/correction", json={"boxes": [box]})
     assert c.status_code == 200
@@ -115,3 +149,22 @@ def test_correction_is_stored_with_the_report(client):
     rep = client.post("/api/reports", json={"analysis_id": a["id"], "location": "Corrected street", "lat": 11.55, "lng": 104.92}).json()
     assert rep["corrected"] and rep["analysis"]["correction"]["boxes"][0]["cls"] == "D40"
     assert client.get("/api/reports").json()["items"][0]["corrected"]
+
+
+@needs_all
+def test_a_sample_becomes_its_own_photo(client, files):
+    """Sample roads go through the same upload as any photo, so each check has its own copy in storage."""
+    one = check(client, files, road_photo(), source="sample:pothole").json()
+    two = check(client, files, road_photo(), source="sample:pothole").json()
+    assert one["source"] == "sample:pothole" and one["id"] != two["id"]
+    assert files.get(f"originals/{one['id']}.jpg") == files.get(f"originals/{two['id']}.jpg") == road_photo()
+
+
+@needs_all
+def test_old_unsaved_checks_take_their_photos_with_them(client, files):
+    old = check(client, files, road_photo()).json()
+    with client.app.state.pool.connection() as conn:
+        conn.execute("UPDATE analyses SET created_at = now() - interval '2 days' WHERE id = %s", (old["id"],))
+    check(client, files, road_photo())  # each new check cleans up old unsaved ones
+    assert f"frames/{old['id']}.jpg" not in files.objects and f"originals/{old['id']}.jpg" not in files.objects
+    assert client.get(f"/api/analyses/{old['id']}").status_code == 404

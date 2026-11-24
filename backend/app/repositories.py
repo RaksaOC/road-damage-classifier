@@ -1,4 +1,5 @@
 """Repositories: the only code that writes SQL. They take and return domain objects."""
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -12,7 +13,11 @@ from .domain import COLS, Analysis, Box, Correction, ModelResult, Size
 
 
 def frame_url(analysis_id: UUID) -> str:
+    """The API's stable address for a frame; it redirects to a signed link in object storage."""
     return f"/api/analyses/{analysis_id}/frame.jpg"
+
+
+Link = Callable[[str], str]  # object key -> URL a browser can load (storage.ObjectStore.url)
 
 
 def _grid(values: list) -> list[list]:
@@ -39,16 +44,19 @@ class NewModelRun:
 
 
 class AnalysisRepository:
-    def __init__(self, pool: ConnectionPool):
-        self.pool = pool
+    def __init__(self, pool: ConnectionPool, link: Link):
+        self.pool, self.link = pool, link
 
-    def insert(self, *, filename: str, source: str, original_size: tuple[int, int], frame_jpeg: bytes,
-               priority: float, timings_ms: dict, runs: list[NewModelRun]) -> UUID:
+    def image_url(self, analysis_id: UUID, frame_key: str | None) -> str:
+        return self.link(frame_key) if frame_key else frame_url(analysis_id)
+
+    def insert(self, *, analysis_id: UUID, filename: str, source: str, original_size: tuple[int, int], frame_key: str,
+               original_key: str, priority: float, timings_ms: dict, runs: list[NewModelRun]) -> UUID:
         with self.pool.connection() as conn, conn.transaction():
             row = conn.execute(
-                """INSERT INTO analyses (filename, source, original_w, original_h, frame_jpeg, priority, timings_ms)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-                (filename, source, *original_size, frame_jpeg, priority, Jsonb(timings_ms))).fetchone()
+                """INSERT INTO analyses (id, filename, source, original_w, original_h, frame_key, original_key, priority, timings_ms)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                (analysis_id, filename, source, *original_size, frame_key, original_key, priority, Jsonb(timings_ms))).fetchone()
             aid = row["id"]
             with conn.cursor() as cur:
                 cur.executemany(
@@ -64,7 +72,7 @@ class AnalysisRepository:
     def get(self, analysis_id: UUID) -> Analysis | None:
         with self.pool.connection() as conn:
             a = conn.execute(
-                """SELECT id, created_at, filename, source, original_w, original_h, priority, timings_ms
+                """SELECT id, created_at, filename, source, original_w, original_h, priority, timings_ms, frame_key
                    FROM analyses WHERE id = %s""", (analysis_id,)).fetchone()
             if not a:
                 return None
@@ -82,7 +90,7 @@ class AnalysisRepository:
                 probs=_grid([[round(v, 4) for v in x["probs"]] for x in p]), counts=domain.counts(labels),
                 priority=round(run["priority"], 1), predict_ms=run["predict_ms"])
         return Analysis(id=a["id"], created_at=a["created_at"], filename=a["filename"], source=a["source"],
-                        original_size=Size(w=a["original_w"], h=a["original_h"]), image_url=frame_url(a["id"]),
+                        original_size=Size(w=a["original_w"], h=a["original_h"]), image_url=self.image_url(a["id"], a["frame_key"]),
                         results=results, priority=round(a["priority"], 1), timings_ms=a["timings_ms"],
                         correction=self.correction(analysis_id))
 
@@ -104,19 +112,22 @@ class AnalysisRepository:
         except errors.ForeignKeyViolation as e:
             raise NotFound from e
 
-    def frame(self, analysis_id: UUID) -> bytes | None:
+    def frame_key(self, analysis_id: UUID) -> str | None:
+        """None when there's no such analysis (or, briefly, an old frame not yet moved to storage)."""
         with self.pool.connection() as conn:
-            row = conn.execute("SELECT frame_jpeg FROM analyses WHERE id = %s", (analysis_id,)).fetchone()
-        return bytes(row["frame_jpeg"]) if row else None
+            row = conn.execute("SELECT frame_key FROM analyses WHERE id = %s", (analysis_id,)).fetchone()
+        return row["frame_key"] if row else None
 
-    def delete_unsaved(self, older_than_hours: int) -> int:
-        """Analyses nobody saved as a report or corrected, older than the given age."""
+    def delete_unsaved(self, older_than_hours: int) -> list[str]:
+        """Deletes analyses nobody saved as a report or corrected, older than the given age.
+        Returns their object keys, so the caller can delete the photos too."""
         with self.pool.connection() as conn:
-            cur = conn.execute(
+            rows = conn.execute(
                 """DELETE FROM analyses a WHERE a.created_at < now() - make_interval(hours => %s)
                    AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.analysis_id = a.id)
-                   AND NOT EXISTS (SELECT 1 FROM corrections c WHERE c.analysis_id = a.id)""", (older_than_hours,))
-            return cur.rowcount
+                   AND NOT EXISTS (SELECT 1 FROM corrections c WHERE c.analysis_id = a.id)
+                   RETURNING a.frame_key, a.original_key""", (older_than_hours,)).fetchall()
+        return [k for r in rows for k in (r["frame_key"], r["original_key"]) if k]
 
 
 ORDER = {  # whitelisted: user input never reaches the SQL text
@@ -136,6 +147,7 @@ class ReportRow:
     lng: float | None
     priority: float
     analysis_id: UUID
+    frame_key: str | None
     preview_labels: list[str]
     corrected: bool
 
@@ -145,7 +157,7 @@ class ReportRepository:
         self.pool = pool
 
     _SELECT = """
-        SELECT r.id, r.number, r.created_at, r.location, r.lat, r.lng, a.priority, r.analysis_id,
+        SELECT r.id, r.number, r.created_at, r.location, r.lat, r.lng, a.priority, r.analysis_id, a.frame_key,
                (SELECT array_agg(p.label ORDER BY p.sq_row, p.sq_col) FROM predictions p
                  WHERE p.analysis_id = r.analysis_id AND p.model = %(preview)s) AS preview_labels,
                EXISTS (SELECT 1 FROM corrections c WHERE c.analysis_id = r.analysis_id) AS corrected
@@ -155,6 +167,7 @@ class ReportRepository:
     def _row(r: dict) -> ReportRow:
         return ReportRow(id=r["id"], number=r["number"], created_at=r["created_at"], location=r["location"],
                          lat=r["lat"], lng=r["lng"], priority=round(r["priority"], 1), analysis_id=r["analysis_id"],
+                         frame_key=r["frame_key"],
                          preview_labels=r["preview_labels"] or [], corrected=r["corrected"])
 
     def create(self, analysis_id: UUID, location: str, lat: float, lng: float) -> UUID:

@@ -1,6 +1,6 @@
 """Export users' corrections from Postgres as training data, in the same shapes as the RDD pipeline.
 
-run:  uv run python -m ml.scripts.export_corrections      (DATABASE_URL, default postgresql:///rdc)
+run:  uv run python -m ml.scripts.export_corrections      (DATABASE_URL and the S3_* settings, as for the API)
 writes data/processed/corrections/:
     frames/<analysis_id>.jpg   the 640 x 400 frame the models saw
     boxes.csv                  analysis_id, cls, xmin, xmax, ymin, ymax   (like 06_squares/boxes_640x400.csv)
@@ -10,23 +10,24 @@ writes data/processed/corrections/:
 The labels come from the boxes with the training rule (app/domain.py labels_from_boxes, tested against notebook 06).
 These photos were never in train/val/test, so they can join the training set; keep them out of the locked test set.
 """
-import os
-
 import numpy as np
 import pandas as pd
 import psycopg
 from PIL import Image
 from psycopg.rows import dict_row
 
+from app.settings import Settings
+from app.storage import MinioStore
 from ml import config, features, photo
 
 OUT = config.PROCESSED / "corrections"
 
 
 def main():
-    url = os.environ.get("DATABASE_URL", "postgresql:///rdc")
-    with psycopg.connect(url, row_factory=dict_row) as conn:
-        rows = conn.execute("""SELECT c.analysis_id, c.boxes, c.labels, a.frame_jpeg
+    s = Settings()
+    files = MinioStore(s.s3_endpoint, s.s3_public_url, s.s3_access_key, s.s3_secret_key, s.s3_bucket, s.s3_region)
+    with psycopg.connect(s.database_url, row_factory=dict_row) as conn:
+        rows = conn.execute("""SELECT c.analysis_id, c.boxes, c.labels, a.frame_key
                                FROM corrections c JOIN analyses a ON a.id = c.analysis_id ORDER BY c.updated_at""").fetchall()
         preds = conn.execute("""SELECT p.analysis_id, p.model, p.sq_row, p.sq_col, p.label FROM predictions p
                                 WHERE p.analysis_id IN (SELECT analysis_id FROM corrections)""").fetchall()
@@ -40,7 +41,7 @@ def main():
     for r in rows:
         aid = str(r["analysis_id"])
         path = OUT / "frames" / f"{aid}.jpg"
-        path.write_bytes(bytes(r["frame_jpeg"]))
+        path.write_bytes(files.get(r["frame_key"]))  # frames live in object storage (app/storage.py)
         frame = Image.open(path).convert("RGB")
         mean = features.photo_brightness(frame)
         X.extend(features.extract(sq, mean) for sq in photo.squares(frame))
