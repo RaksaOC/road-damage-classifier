@@ -1,5 +1,5 @@
 import { cx } from "@/lib/cx";
-import { PRIORITY, levelOf } from "@/lib/demo/priority";
+import { PRIORITY, levelOf } from "@/domain/priority";
 import styles from "./PriorityBadge.module.css";
 
 /** Coloured pill with the priority level, optionally with the 0–10 score. */

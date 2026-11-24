@@ -1,4 +1,4 @@
-import { CLASSES } from "@/lib/roadKit";
+import { CLASSES } from "@/domain/damage";
 import styles from "./DamageLegend.module.css";
 
 export function DamageLegend() {

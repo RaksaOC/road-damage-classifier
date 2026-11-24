@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { services } from "@/services";
 import { ThemeToggle } from "../ThemeToggle";
 import styles from "./SiteHeader.module.css";
 
@@ -12,7 +13,14 @@ export function SiteHeader({ onBrand }: { onBrand?: () => void }) {
         <BrandMark />
         <span>Road Damage Classifier</span>
       </Link>
-      <ThemeToggle />
+      <div className={styles.end}>
+        {services.source === "mock" && (
+          <span className={styles.mock} title="NEXT_PUBLIC_DATA_SOURCE=mock: a stand-in classifier and reports in this browser">
+            Mock data
+          </span>
+        )}
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

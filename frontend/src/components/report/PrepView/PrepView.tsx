@@ -2,8 +2,7 @@
 
 import { motion } from "motion/react";
 import { cx } from "@/lib/cx";
-import { CROP_KEEP, cropTop } from "@/lib/demo/images";
-import { H, W } from "@/lib/roadKit";
+import { CROP_KEEP, H, W, cropTop } from "@/domain/frame";
 import styles from "./PrepView.module.css";
 
 export type PrepStage = "original" | "crop" | "resize";
