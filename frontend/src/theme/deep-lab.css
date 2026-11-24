@@ -2,9 +2,9 @@
    (study hub "deep-lab" look). */
 
 :root[data-look="deep-lab"] {
-  --f-display: var(--font-space-grotesk), "Space Grotesk", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --f-body: var(--font-inter), "Inter", Arial, ui-sans-serif, system-ui, sans-serif;
-  --f-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --f-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --f-body: var(--font-inter), ui-sans-serif, system-ui, Arial, sans-serif;
+  --f-mono: var(--font-jetbrains), ui-monospace, Consolas, monospace;
   --f-label: var(--f-mono);
   --label-tt: uppercase;
   --label-track: 0.04em;

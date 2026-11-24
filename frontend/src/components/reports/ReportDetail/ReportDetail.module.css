@@ -33,3 +33,76 @@
 .danger {
   color: var(--bad) !important;
 }
+.loading {
+  display: grid;
+  gap: 12px;
+}
+.loading span {
+  display: block;
+  border-radius: 12px;
+  background: var(--faint);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.skPhoto {
+  aspect-ratio: 16 / 10;
+}
+.skLine {
+  height: 14px;
+  width: 70%;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.failed {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.failed p {
+  margin: 0;
+}
+
+.under {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.corrected {
+  display: grid;
+  gap: 10px;
+}
+.correctedHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.label {
+  font-family: var(--f-label);
+  text-transform: var(--label-tt);
+  letter-spacing: var(--label-track);
+  font-size: calc(0.76rem * var(--label-scale));
+  color: var(--muted);
+}
+.small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.corrected {
+  padding-top: 16px;
+  border-top: 1px solid var(--faint);
+}
+.where {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.where a {
+  justify-self: start;
+  color: var(--accent-text);
+  font-size: 0.86rem;
+}

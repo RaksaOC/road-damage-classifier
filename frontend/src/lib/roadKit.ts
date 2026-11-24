@@ -1,19 +1,8 @@
-// Draws sample road photos for the tour, plus the shared damage-class info.
+// Draws the synthetic road pictures for the onboarding tour. Class info lives in src/domain.
+import { BY, CLASSES, RANK, type ClassInfo, type ClassKey } from "@/domain/damage";
+import { CELL, COLS, H, ROWS, W } from "@/domain/frame";
 
-export const W = 640, H = 400, CELL = 80, COLS = 8, ROWS = 5;
-
-export type ClassKey = "D00" | "D10" | "D20" | "D40" | "none";
-export type ClassInfo = { k: ClassKey; n: string; w: number; v: string };
-
-export const CLASSES: ClassInfo[] = [
-  { k: "D00", n: "Longitudinal crack", w: 0.4, v: "--c-d00" },
-  { k: "D10", n: "Transverse crack", w: 0.5, v: "--c-d10" },
-  { k: "D20", n: "Alligator crack", w: 0.8, v: "--c-d20" },
-  { k: "D40", n: "Pothole", w: 1.0, v: "--c-d40" },
-  { k: "none", n: "No damage", w: 0, v: "--c-none" },
-];
-export const BY = Object.fromEntries(CLASSES.map(c => [c.k, c])) as Record<ClassKey, ClassInfo>;
-export const RANK: Record<ClassKey, number> = { none: 0, D00: 1, D10: 2, D20: 3, D40: 4 };
+export { BY, CELL, CLASSES, COLS, H, RANK, ROWS, W, type ClassInfo, type ClassKey };
 export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
 export type Rng = () => number;

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { levelOf } from "@/lib/demo/priority";
+import { levelOf } from "@/domain/priority";
 import { PriorityBadge } from "../PriorityBadge";
 import styles from "./PriorityCard.module.css";
 

@@ -1,8 +1,9 @@
+# the image needs only the app, the ml code it imports and the frozen models
 .venv
 __pycache__
 .pytest_cache
-data/raw/*
-data/processed/*
-ml/notebooks
 .ipynb_checkpoints
+data
+tests
+ml/notebooks
 .env*

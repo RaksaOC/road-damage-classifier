@@ -3,38 +3,50 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import ui from "@/components/ui/primitives/primitives.module.css";
+import type { Analysis } from "@/domain/analysis";
+import { SQUARES } from "@/domain/frame";
+import { DEFAULT_MODEL, type ModelId } from "@/domain/model";
+import { reportsChanged } from "@/hooks/useReports";
 import { cx } from "@/lib/cx";
-import { averagePriority, classifyAll, type Results } from "@/lib/demo/classify";
-import { thumbnail } from "@/lib/demo/images";
-import { MODELS, type ModelId } from "@/lib/demo/models";
-import { addReport, toResults } from "@/lib/demo/reports";
-import { COLS, ROWS } from "@/lib/roadKit";
-import { Analyzing } from "../Analyzing";
+import { errorMessage, services } from "@/services";
+import { Analyzing, CLASSIFY_STEP } from "../Analyzing";
+import { Annotator } from "../Annotator";
+import { LocationPicker, type Place } from "../LocationPicker";
 import { DamageBreakdown } from "../DamageBreakdown";
 import { DamageLegend } from "../DamageLegend";
 import { ModelTabs } from "../ModelTabs";
 import { PhotoPicker, type PickedPhoto } from "../PhotoPicker";
+import { PrepView } from "../PrepView";
 import { PriorityCard } from "../PriorityCard";
 import { RoadView } from "../RoadView";
 import styles from "./NewReport.module.css";
 
 type Phase = "pick" | "details" | "checking" | "done";
 
-/** Photo → details → all three models (fake) → result. Only "Save record" adds it to the history below. */
+type Request = { status: "running" | "done" | "error"; error: string | null };
+type Save = { status: "idle" | "saving" | "saved" | "error"; error: string | null };
+
+/** Photo → details → all three models (services.analysis) → result. Only "Save record" makes it a report. */
 export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
   const [phase, setPhase] = useState<Phase>("pick");
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
-  const [results, setResults] = useState<Results | null>(null);
-  const [tab, setTab] = useState<ModelId>("mlp");
-  const [saved, setSaved] = useState(false);
+  const [place, setPlace] = useState<Place | null>(null); // from the map only
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [req, setReq] = useState<Request>({ status: "running", error: null });
+  const [saving, setSaving] = useState<Save>({ status: "idle", error: null });
+  const [tab, setTab] = useState<ModelId>(DEFAULT_MODEL);
   const [view, setView] = useState({ step: -1, t: 0 });
+  const [run, setRun] = useState(0); // remounts the checklist on "Try again"
+  const [correcting, setCorrecting] = useState(false);
   const side = useRef<HTMLDivElement>(null);
+  const inflight = useRef<AbortController | null>(null);
+
+  useEffect(() => () => inflight.current?.abort(), []);
 
   // while details are filled in and the photo is checked, the page shows only that: no report list, no scrolling
   const focused = phase === "details" || phase === "checking";
-  useEffect(() => onBusy?.(focused), [focused, onBusy]);
+  const hideReports = focused || correcting; // the correction tool also gets the page to itself
+  useEffect(() => onBusy?.(hideReports), [hideReports, onBusy]);
 
   const pick = (p: PickedPhoto) => {
     setPhoto(p);
@@ -42,14 +54,27 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
     window.scrollTo({ top: 0 });
   };
 
-  const start = () => {
+  const start = async () => {
     if (!photo) return;
-    setResults(classifyAll(photo.frame, photo.sample));
-    setTab("mlp");
-    setSaved(false);
+    inflight.current?.abort();
+    const ctl = (inflight.current = new AbortController());
+    setAnalysis(null);
+    setReq({ status: "running", error: null });
+    setSaving({ status: "idle", error: null });
+    setTab(DEFAULT_MODEL);
+    setCorrecting(false);
     setView({ step: 0, t: 0 });
+    setRun((n) => n + 1);
     setPhase("checking");
     window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      const a = await services.analysis.analyze(photo, { signal: ctl.signal });
+      setAnalysis(a);
+      setReq({ status: "done", error: null });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+      setReq({ status: "error", error: errorMessage(e) });
+    }
   };
 
   const finish = () => {
@@ -58,33 +83,36 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
     if (window.innerWidth < 860) setTimeout(() => side.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
   };
 
-  const save = () => {
-    if (!photo || !results || saved) return;
-    addReport({
-      location: location.trim() || "Unnamed location",
-      notes: notes.trim(),
-      thumb: thumbnail(photo.frame),
-      results: toResults(results),
-      priority: averagePriority(results),
-    });
-    setSaved(true);
+  const save = async () => {
+    if (!analysis || saving.status === "saving" || saving.status === "saved") return;
+    setSaving({ status: "saving", error: null });
+    try {
+      if (!place) throw new Error("The location isn't known yet.");
+      await services.reports.create({ analysisId: analysis.id, location: place.name, lat: place.lat, lng: place.lng });
+      setSaving({ status: "saved", error: null });
+      reportsChanged();
+    } catch (e) {
+      setSaving({ status: "error", error: errorMessage(e) });
+    }
   };
 
   const restart = () => {
+    inflight.current?.abort();
     setPhoto(null);
-    setResults(null);
-    setSaved(false);
-    setLocation("");
-    setNotes("");
+    setAnalysis(null);
+    setSaving({ status: "idle", error: null });
+    setPlace(null);
     setPhase("pick");
     window.scrollTo({ top: 0 });
   };
 
   // what the photo shows while the checklist runs
-  const all = COLS * ROWS;
-  // during the check the photo fills in with the neural network's answer, then follows the chosen tab
-  const shown = results ? results[phase === "done" ? tab : "mlp"] : null;
-  const revealed = phase === "done" ? all : view.step > 3 ? all : view.step === 3 ? Math.floor(view.t * all) : 0;
+  const all = SQUARES;
+  // during the check the photo fills in with the default model's answer, then follows the chosen tab
+  const shown = analysis ? analysis.results[phase === "done" ? tab : DEFAULT_MODEL] : null;
+  // checklist steps: 0 crop, 1 resize, 2 squares, 3 features, 4 classify, 5 priority
+  const prepping = phase === "details" || (phase === "checking" && view.step <= 1 && req.status !== "error");
+  const revealed = phase === "done" ? all : view.step > CLASSIFY_STEP ? all : view.step === CLASSIFY_STEP ? Math.floor(view.t * all) : 0;
 
   return (
     <div className={styles.page}>
@@ -125,31 +153,59 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
           >
-            <div className={styles.workInner}>
+            <div className={cx(styles.workInner, correcting && styles.solo)}>
               <div className={styles.media}>
+                <div className={styles.stage}>
+                {phase === "details" && (
+                  <button type="button" className={styles.change} onClick={restart} aria-label="Change photo" title="Change photo">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5" />
+                    </svg>
+                  </button>
+                )}
+                {correcting && analysis ? (
+                  <Annotator
+                    src={photo.src}
+                    analysisId={analysis.id}
+                    initial={analysis.correction?.boxes ?? []}
+                    onSaved={(c) => (setAnalysis({ ...analysis, correction: c }), setCorrecting(false))}
+                    onCancel={() => setCorrecting(false)}
+                  />
+                ) : prepping ? (
+                  <PrepView
+                    original={photo.original}
+                    size={photo.size}
+                    frame={photo.src}
+                    stage={phase === "details" ? "original" : view.step === 0 ? "crop" : "resize"}
+                  />
+                ) : (
                 <RoadView
                   src={photo.src}
                   alt={photo.name}
-                  cells={phase === "checking" || phase === "done" ? shown?.cells : undefined}
+                  cells={phase === "checking" || phase === "done" ? shown?.labels : undefined}
                   confidence={shown?.confidence}
-                  grid={phase !== "details"}
+                  grid
                   revealed={revealed}
-                  mono={phase === "checking" && (view.step === 1 || view.step === 2)}
-                  scanning={phase === "checking" && view.step >= 1 && view.step <= 3}
+                  mono={phase === "checking" && view.step === 3}
+                  scanning={phase === "checking" && req.status !== "error" && view.step >= 3 && view.step <= CLASSIFY_STEP}
                   interactive={phase === "done"}
+                  numbers
                 />
+                )}
+                </div>
+                {!correcting && phase === "done" && (
                 <div className={styles.under}>
-                  {phase === "done" ? <DamageLegend /> : <span className={styles.file}>{photo.name}</span>}
-                  {phase === "details" && (
-                    <button className={ui.textBtn} onClick={restart}>
-                      Change photo
+                  <DamageLegend />
+                  {analysis && (
+                    <button className={cx(ui.textBtn, styles.fix)} onClick={() => setCorrecting(true)}>
+                      {analysis.correction ? `Corrected (${analysis.correction.boxes.length} box${analysis.correction.boxes.length === 1 ? "" : "es"}) · Edit` : "Incorrect?"}
                     </button>
                   )}
-                  {phase === "done" && <span className={styles.tipHint}>Hover or tap a square to see what this model saw</span>}
                 </div>
+                )}
               </div>
 
-              <div className={styles.side} ref={side}>
+              <div className={styles.side} ref={side} hidden={correcting}>
                 <AnimatePresence mode="wait">
                   {phase === "details" && (
                     <motion.form
@@ -161,41 +217,29 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
                       onSubmit={(e) => (e.preventDefault(), start())}
                     >
                       <h2>Where is this road?</h2>
-                      <label className={ui.field}>
-                        <span className={ui.label}>Location</span>
-                        <input
-                          className={ui.input}
-                          value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                          placeholder="e.g. Street 271, Tuol Kork"
-                          autoFocus
-                        />
-                      </label>
-                      <label className={ui.field}>
-                        <span className={ui.label}>
-                          Notes <i className={styles.opt}>optional</i>
-                        </span>
-                        <textarea
-                          className={ui.input}
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          placeholder="Anything the repair team should know"
-                          rows={3}
-                        />
-                      </label>
-                      <button type="submit" className={cx(ui.btn, ui.primary, styles.go)}>
-                        Check this road
+                      <LocationPicker onChange={setPlace} />
+                      <button type="submit" className={cx(ui.btn, ui.primary, styles.go)} disabled={!place}>
+                        {place ? "Check this road" : "Waiting for the location…"}
                       </button>
                     </motion.form>
                   )}
 
                   {phase === "checking" && (
                     <motion.div key="checking" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-                      <Analyzing onStep={(step, t) => setView({ step, t })} onDone={finish} />
+                      <Analyzing
+                        key={run}
+                        status={req.status}
+                        timings={analysis?.timings ?? null}
+                        error={req.error}
+                        onStep={(step, t) => setView({ step, t })}
+                        onDone={finish}
+                        onRetry={start}
+                        onBack={restart}
+                      />
                     </motion.div>
                   )}
 
-                  {phase === "done" && results && shown && (
+                  {phase === "done" && analysis && shown && (
                     <motion.div
                       key="done"
                       className={styles.result}
@@ -207,7 +251,7 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
                         <ModelTabs
                           value={tab}
                           onChange={setTab}
-                          scores={{ mlp: results.mlp.priority, svm: results.svm.priority, softmax: results.softmax.priority }}
+                          scores={{ mlp: analysis.results.mlp.priority, svm: analysis.results.svm.priority, softmax: analysis.results.softmax.priority }}
                         />
                       </motion.div>
                       <motion.div variants={item}>
@@ -216,13 +260,10 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
                       <motion.div variants={item}>
                         <DamageBreakdown counts={shown.counts} />
                       </motion.div>
-                      <motion.p className={styles.meta} variants={item}>
-                        {Math.round((MODELS.find((m) => m.value === tab)?.accuracy ?? 0) * 100)}% accurate on the test photos · average confidence{" "}
-                        {Math.round((shown.confidence.flat().reduce((a, b) => a + b, 0) / all) * 100)}%
-                      </motion.p>
                       <motion.div className={styles.actions} variants={item}>
-                        <button className={cx(ui.btn, ui.primary)} onClick={save} disabled={saved}>
-                          {saved && (
+                        <button className={cx(ui.btn, ui.primary)} onClick={save} disabled={saving.status === "saving" || saving.status === "saved"} aria-busy={saving.status === "saving"}>
+                          {saving.status === "saving" && <span className={styles.spin} aria-hidden="true" />}
+                          {saving.status === "saved" && (
                             <svg
                               width="14"
                               height="14"
@@ -236,18 +277,34 @@ export function NewReport({ onBusy }: { onBusy?: (busy: boolean) => void }) {
                               <path d="m5 12.5 4.5 4.5L19 7.5" />
                             </svg>
                           )}
-                          {saved ? "Saved" : "Save record"}
+                          {saving.status === "saved" ? "Saved" : saving.status === "saving" ? "Saving…" : saving.status === "error" ? "Try saving again" : "Save record"}
                         </button>
-                        <button className={cx(ui.btn, ui.ghost, styles.again)} onClick={restart}>
-                          Choose again
-                        </button>
+                        <div className={styles.again}>
+                          <button className={cx(ui.btn, ui.ghost, styles.round)} onClick={start} aria-label="Run the check again" data-tip="Run the check again">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+                              <path d="M20 4v7h-7" />
+                            </svg>
+                          </button>
+                          <button className={cx(ui.btn, ui.ghost, styles.round)} onClick={restart} aria-label="Choose again" data-tip="Choose again">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                              <path d="M14 3v5h5" />
+                            </svg>
+                          </button>
+                        </div>
                       </motion.div>
+                      {saving.status === "error" && (
+                        <p className={styles.saveError} role="alert">
+                          {saving.error}
+                        </p>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
             </div>
-            {phase === "done" && (
+            {phase === "done" && !correcting && (
               <a className={styles.down} href="#reports">
                 Past reports
                 <svg

@@ -42,6 +42,27 @@
 .live.on {
   box-shadow: inset 0 0 0 2px #fff;
 }
+/* row and column numbers, outside the photo */
+.numbered {
+  position: relative;
+}
+.colNum,
+.rowNum {
+  position: absolute;
+  color: var(--muted);
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.colNum {
+  top: -16px;
+  transform: translateX(-50%);
+}
+.rowNum {
+  left: -14px;
+  transform: translateY(-50%);
+}
 .scan {
   position: absolute;
   inset: 0 auto 0 0;

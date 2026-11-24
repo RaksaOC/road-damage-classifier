@@ -1,0 +1,350 @@
+{
+  "note": "Test photos (never trained on) picked because all three models do well on them. A typical photo scores lower: see notebook 13.",
+  "samples": [
+    {
+      "key": "pothole",
+      "label": "Pothole",
+      "imageId": "India_001251",
+      "country": "India",
+      "size": {
+        "w": 720,
+        "h": 720
+      },
+      "src": "/samples/pothole.jpg",
+      "frame": "/samples/pothole.frame.jpg",
+      "truth": [
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "D40",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "D40",
+          "D40",
+          "D40",
+          "D40",
+          "D40",
+          "none"
+        ]
+      ],
+      "correct": {
+        "softmax": 27,
+        "svm": 29,
+        "mlp": 28
+      }
+    },
+    {
+      "key": "alligator",
+      "label": "Alligator cracks",
+      "imageId": "Japan_010413",
+      "country": "Japan",
+      "size": {
+        "w": 600,
+        "h": 600
+      },
+      "src": "/samples/alligator.jpg",
+      "frame": "/samples/alligator.frame.jpg",
+      "truth": [
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "D20",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "D20",
+          "D20",
+          "D20",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "D20",
+          "D20",
+          "D20",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ]
+      ],
+      "correct": {
+        "softmax": 20,
+        "svm": 21,
+        "mlp": 20
+      }
+    },
+    {
+      "key": "longitudinal",
+      "label": "Long cracks",
+      "imageId": "Czech_001216",
+      "country": "Czech",
+      "size": {
+        "w": 600,
+        "h": 600
+      },
+      "src": "/samples/longitudinal.jpg",
+      "frame": "/samples/longitudinal.frame.jpg",
+      "truth": [
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "D00",
+          "D00",
+          "none",
+          "D10",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "D00",
+          "D00",
+          "D00",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ]
+      ],
+      "correct": {
+        "softmax": 33,
+        "svm": 33,
+        "mlp": 31
+      }
+    },
+    {
+      "key": "transverse",
+      "label": "Cross cracks",
+      "imageId": "Czech_002795",
+      "country": "Czech",
+      "size": {
+        "w": 600,
+        "h": 600
+      },
+      "src": "/samples/transverse.jpg",
+      "frame": "/samples/transverse.frame.jpg",
+      "truth": [
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "D10",
+          "D10",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ]
+      ],
+      "correct": {
+        "softmax": 26,
+        "svm": 31,
+        "mlp": 28
+      }
+    },
+    {
+      "key": "clean",
+      "label": "Clean road",
+      "imageId": "Japan_002991",
+      "country": "Japan",
+      "size": {
+        "w": 600,
+        "h": 600
+      },
+      "src": "/samples/clean.jpg",
+      "frame": "/samples/clean.frame.jpg",
+      "truth": [
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ],
+        [
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none",
+          "none"
+        ]
+      ],
+      "correct": {
+        "softmax": 38,
+        "svm": 40,
+        "mlp": 34
+      }
+    }
+  ]
+}

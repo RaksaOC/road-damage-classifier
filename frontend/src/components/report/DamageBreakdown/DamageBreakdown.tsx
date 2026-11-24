@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CLASSES, type ClassKey } from "@/lib/roadKit";
+import { CLASSES, type ClassKey } from "@/domain/damage";
 import styles from "./DamageBreakdown.module.css";
 
 /** Squares per damage type, as bars out of all 40 squares. */

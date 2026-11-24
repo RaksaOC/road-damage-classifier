@@ -1,0 +1,56 @@
+.view {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 640 / 400;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--asphalt);
+  user-select: none;
+}
+.abs {
+  position: absolute;
+  display: block;
+}
+img.abs {
+  object-fit: fill; /* the resize stretches, it does not crop again */
+}
+.drop {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(135deg, rgba(10, 12, 11, 0.62) 0 10px, rgba(10, 12, 11, 0.78) 10px 20px);
+  color: #fff;
+  font-size: 0.84rem;
+  text-align: center;
+}
+.drop span {
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  background: rgba(16, 18, 17, 0.7);
+}
+.kept {
+  box-shadow: 0 0 0 2px var(--accent);
+  transition: box-shadow 0.4s var(--ease);
+}
+.kept.filled {
+  box-shadow: 0 0 0 0 transparent;
+}
+.line {
+  position: absolute;
+  height: 0;
+  border-top: 2px dashed #fff;
+  transform-origin: left center;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
+}
+.chip {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 6px 11px;
+  border-radius: var(--r-pill);
+  background: rgba(16, 18, 17, 0.82);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  pointer-events: none;
+}
