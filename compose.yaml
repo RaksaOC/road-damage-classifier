@@ -1,0 +1,90 @@
+# Road Damage Classifier: Postgres + MinIO (photos) + FastAPI (models) + Next.js, sized for a small shared
+# server (2 CPU / 4 GB).
+#   cp .env.example .env   # set POSTGRES_PASSWORD and MINIO_ROOT_PASSWORD
+#   docker compose up -d --build
+#   open http://localhost:3000        (put your reverse proxy / HTTPS in front of ports 3000 and 9000)
+# Published: the website, and MinIO's S3 port, because browsers upload photos straight to it (signed forms)
+# and load the images from it (signed links). Postgres and the API are reachable inside this network only.
+name: rdc
+
+services:
+  rdc-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rdc
+      POSTGRES_USER: rdc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    # small-server tuning: a few connections, modest caches
+    command: postgres -c shared_buffers=64MB -c effective_cache_size=256MB -c max_connections=30 -c work_mem=4MB
+    volumes:
+      - rdc-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rdc -d rdc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  rdc-files:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z   # minio/minio is no longer published on Docker Hub
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: rdc
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    ports:
+      - "${FILES_PORT:-9000}:9000"
+    volumes:
+      - rdc-files:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  rdc-api:
+    build: ./backend
+    image: rdc-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://rdc:${POSTGRES_PASSWORD}@rdc-db:5432/rdc
+      # photos: the API reaches MinIO inside the network; browsers at S3_PUBLIC_URL (the bucket is made at startup)
+      S3_ENDPOINT: http://rdc-files:9000
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000}
+      S3_ACCESS_KEY: rdc
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      # one worker; keep numpy / scikit-learn from starting a thread per core
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    depends_on:
+      rdc-db: { condition: service_healthy }
+      rdc-files: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768M }
+
+  rdc-web:
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://rdc-api:8600   # /api/* is forwarded here (fixed at build time)
+    image: rdc-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      rdc-api: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+volumes:
+  rdc-db:
+  rdc-files:

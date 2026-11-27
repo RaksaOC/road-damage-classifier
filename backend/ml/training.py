@@ -65,6 +65,26 @@ def load_data() -> Data:
     return Data(np.asarray(X[tr]), y[tr], image_id[tr], np.asarray(X[va]), y[va])
 
 
+class TestData(NamedTuple):
+    """The locked test squares (real mix), with the photo and country of each square."""
+    X: np.ndarray
+    y: np.ndarray
+    image_id: np.ndarray
+    country: np.ndarray
+
+
+def load_test() -> TestData:
+    """Phase 13 only: the 36,000 test squares, never used for training or tuning.
+
+    Call it once, after the models are frozen in models/. Everything before Phase 13 uses load_data().
+    """
+    X, meta = _features()
+    idx = np.flatnonzero(meta["split"] == "test")
+    image_id = meta["image_id"][idx]
+    country = np.array([i.split("_")[0] for i in image_id])  # image_id looks like "Czech_000123"
+    return TestData(np.asarray(X[idx]), meta["y"][idx], image_id, country)
+
+
 def load_unbalanced_train():
     """All training squares before Phase 8's balancing, for the balancing test (hypothesis H3)."""
     X, meta = _features()

@@ -74,3 +74,11 @@
   font-size: 0.8rem;
   white-space: nowrap;
 }
+
+.tag {
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.72rem;
+}

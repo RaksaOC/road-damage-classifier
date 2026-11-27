@@ -5,14 +5,12 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
-# data and trained models (too big for git)
+# data (too big for git). backend/models/ IS committed: the frozen models the API serves (~21 MB).
 backend/data/raw/*
 backend/data/processed/*
-backend/models/*
 backend/data/*.zip
 !backend/data/raw/.gitkeep
 !backend/data/processed/.gitkeep
-!backend/models/.gitkeep
 
 # OS / editor
 .DS_Store

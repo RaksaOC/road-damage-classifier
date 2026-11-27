@@ -107,3 +107,45 @@
     animation-duration: 2.4s;
   }
 }
+.failed {
+  border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+}
+.bang {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bad);
+  color: #fff;
+  font-weight: 700;
+}
+.error {
+  display: grid;
+  gap: 14px;
+}
+.error p {
+  margin: 0;
+  color: var(--ink);
+}
+.errorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ms {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--faint);
+  color: var(--muted);
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 400;
+}
+.foot {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}

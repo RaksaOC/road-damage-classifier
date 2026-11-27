@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { cx } from "@/lib/cx";
-import { BY, COLS, ROWS, type ClassKey } from "@/lib/roadKit";
+import { BY, type ClassKey } from "@/domain/damage";
+import { COLS, ROWS } from "@/domain/frame";
 import styles from "./RoadView.module.css";
 
 interface RoadViewProps {
@@ -20,13 +21,15 @@ interface RoadViewProps {
   /** Row and column numbers outside the photo (needs about 20 px free above and to the left). */
   numbers?: boolean;
   className?: string;
+  /** Drawn on top of the photo, e.g. a correction's boxes. */
+  children?: React.ReactNode;
 }
 
 // same numbering as the notebook and patches.csv: rows 0-4 from the top, columns 0-7 from the left
 const squareName = (r: number, c: number) => `row ${r} · col ${c}`;
 
 /** The road photo with the 8 × 5 grid on top, each square tinted by the damage found in it. */
-export function RoadView({ src, alt = "Road photo", cells, confidence, revealed = COLS * ROWS, grid = !!cells, mono, scanning, interactive, numbers, className }: RoadViewProps) {
+export function RoadView({ src, alt = "Road photo", cells, confidence, revealed = COLS * ROWS, grid = !!cells, mono, scanning, interactive, numbers, className, children }: RoadViewProps) {
   const [hover, setHover] = useState<number | null>(null);
   const picked = hover !== null && cells ? { r: Math.floor(hover / COLS), c: hover % COLS } : null;
   const pickedKey = picked && cells ? cells[picked.r][picked.c] : null;
@@ -53,6 +56,7 @@ export function RoadView({ src, alt = "Road photo", cells, confidence, revealed 
           })}
         </div>
       )}
+      {children}
       {scanning && <div className={styles.scan} aria-hidden="true" />}
       {picked && pickedKey && (
         <figcaption className={styles.tip}>
